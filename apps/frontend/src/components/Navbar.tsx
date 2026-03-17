@@ -34,6 +34,8 @@ export default function Navbar() {
   const links = [
     { href: '/', label: 'Speed Test' },
     { href: '/blog', label: 'Guides' },
+    { href: '/about', label: 'About' },
+    { href: '/contact', label: 'Contact' },
   ];
 
   return (

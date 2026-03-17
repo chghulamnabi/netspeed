@@ -6,6 +6,7 @@ import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import { measureLatency, measureDownload, measureUpload } from '../lib/testEngine';
 import type { TestProgress, TestResult } from '../lib/testEngine';
+import NetworkDiagnostics from '../components/NetworkDiagnostics';
 
 const NearbyMap = dynamic(() => import('../components/NearbyMap'), { ssr: false });
 
@@ -311,6 +312,16 @@ export default function HomePage() {
             data-ad-format="auto"
             data-full-width-responsive="true" />
         </div>
+
+        {/* Network Diagnostics — shown after test completes */}
+        {result && (
+          <NetworkDiagnostics
+            download={result.downloadSpeed}
+            upload={result.uploadSpeed}
+            latency={result.latency}
+            jitter={result.jitter}
+          />
+        )}
 
         {/* Nearby providers map */}
         <NearbyMap />
