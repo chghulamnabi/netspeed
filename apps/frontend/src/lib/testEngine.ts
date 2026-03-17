@@ -2,49 +2,45 @@ import type { TestResult, TestProgress } from '@shared/types';
 
 const PING_COUNT = 10;
 
-/**
- * Measures latency and jitter by sending sequential pings to /api/ping.
- * Returns average round-trip time (latency) and standard deviation (jitter).
- */
 export async function measureLatency(): Promise<{ latency: number; jitter: number }> {
   const times: number[] = [];
-
   for (let i = 0; i < PING_COUNT; i++) {
     const start = performance.now();
-    // Use local ping proxy — gives accurate readable RTT unlike no-cors
     await fetch('/api/ping', { cache: 'no-store' });
-    const end = performance.now();
-    times.push(end - start);
+    times.push(performance.now() - start);
   }
-
-  const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
-
-  const variance = times.reduce((sum, t) => sum + (t - avg) ** 2, 0) / times.length;
-  const jitter = Math.sqrt(variance);
-
+  const avg = times.reduce((s, t) => s + t, 0) / times.length;
+  const jitter = Math.sqrt(times.reduce((s, t) => s + (t - avg) ** 2, 0) / times.length);
   return { latency: avg, jitter };
 }
 
 const TEST_DURATION_MS = 10_000;
-const DOWNLOAD_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB per chunk
-const UPLOAD_CHUNK_SIZE = 512 * 1024;         // 512KB per upload chunk
-const PARALLEL_STREAMS = 4;                   // parallel connections like speedtest.net
+// Larger chunks = fewer round-trips = better saturation on fast connections
+const DOWNLOAD_CHUNK_SIZE = 4 * 1024 * 1024;  // 4MB
+const UPLOAD_CHUNK_SIZE   = 1 * 1024 * 1024;  // 1MB
+const PARALLEL_STREAMS    = 6;                 // more parallel = closer to real throughput
+
+/** Fill a Uint8Array with random bytes, respecting the 65536-byte getRandomValues limit */
+function randomBytes(size: number): Uint8Array {
+  const buf = new Uint8Array(size);
+  for (let off = 0; off < size; off += 65536) {
+    crypto.getRandomValues(buf.subarray(off, Math.min(off + 65536, size)));
+  }
+  return buf;
+}
 
 /**
- * Measures download speed using parallel streams for 10 seconds.
- * Each stream continuously fetches chunks from Cloudflare directly.
- * Returns the final average download speed in Mbps.
+ * Download: parallel streams fetching from Cloudflare directly for 10s.
  */
 export async function measureDownload(
-  onProgress: (progress: TestProgress) => void
+  onProgress: (p: TestProgress) => void
 ): Promise<number> {
   const startTime = performance.now();
-  const deadline = startTime + TEST_DURATION_MS;
-  let totalBytes = 0;
-  let done = false;
+  const deadline  = startTime + TEST_DURATION_MS;
+  let totalBytes  = 0;
+  let done        = false;
 
-  // One stream worker: keeps fetching until deadline
-  async function streamWorker() {
+  async function worker() {
     while (performance.now() < deadline) {
       const res = await fetch(
         `https://speed.cloudflare.com/__down?bytes=${DOWNLOAD_CHUNK_SIZE}`,
@@ -53,82 +49,96 @@ export async function measureDownload(
       if (!res.body) break;
       const reader = res.body.getReader();
       while (true) {
-        const { done: rdone, value } = await reader.read();
-        if (rdone) break;
+        const { done: rd, value } = await reader.read();
+        if (rd) break;
         totalBytes += value.byteLength;
+        if (performance.now() >= deadline) { reader.cancel(); break; }
       }
     }
   }
 
-  // Progress reporter — updates UI every 250ms
-  const progressTimer = setInterval(() => {
+  const timer = setInterval(() => {
     if (done) return;
     const elapsed = (performance.now() - startTime) / 1000;
-    const currentSpeed = elapsed > 0 ? (totalBytes * 8) / 1_000_000 / elapsed : 0;
-    const progress = Math.min(99, Math.round(((performance.now() - startTime) / TEST_DURATION_MS) * 100));
-    onProgress({ phase: 'download', progress, currentSpeed });
+    const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+    const pct     = Math.min(99, Math.round(((performance.now() - startTime) / TEST_DURATION_MS) * 100));
+    onProgress({ phase: 'download', progress: pct, currentSpeed: speed });
   }, 250);
 
-  // Run parallel streams
-  await Promise.all(Array.from({ length: PARALLEL_STREAMS }, streamWorker));
-
+  await Promise.all(Array.from({ length: PARALLEL_STREAMS }, worker));
   done = true;
-  clearInterval(progressTimer);
+  clearInterval(timer);
 
-  const totalElapsed = (performance.now() - startTime) / 1000;
-  const avgSpeed = totalElapsed > 0 ? (totalBytes * 8) / 1_000_000 / totalElapsed : 0;
-  onProgress({ phase: 'download', progress: 100, currentSpeed: avgSpeed });
-  return avgSpeed;
+  const elapsed = (performance.now() - startTime) / 1000;
+  const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+  onProgress({ phase: 'download', progress: 100, currentSpeed: speed });
+  return speed;
 }
 
 /**
- * Measures upload speed using parallel streams for 10 seconds.
- * Returns the final average upload speed in Mbps.
+ * Upload: measure purely client-side send time using XHR's upload progress events.
+ * This avoids the Vercel serverless overhead from skewing results — we count bytes
+ * as soon as the browser has sent them, not when the server responds.
  */
 export async function measureUpload(
-  onProgress: (progress: TestProgress) => void
+  onProgress: (p: TestProgress) => void
 ): Promise<number> {
-  // Pre-generate one chunk of random data to reuse across all workers
-  const chunk = new Uint8Array(UPLOAD_CHUNK_SIZE);
-  const MAX_RANDOM = 65536;
-  for (let offset = 0; offset < UPLOAD_CHUNK_SIZE; offset += MAX_RANDOM) {
-    crypto.getRandomValues(chunk.subarray(offset, Math.min(offset + MAX_RANDOM, UPLOAD_CHUNK_SIZE)));
-  }
+  const chunk = randomBytes(UPLOAD_CHUNK_SIZE);
 
   const startTime = performance.now();
-  const deadline = startTime + TEST_DURATION_MS;
-  let totalBytes = 0;
-  let done = false;
+  const deadline  = startTime + TEST_DURATION_MS;
+  let totalBytes  = 0;
+  let done        = false;
 
-  async function uploadWorker() {
-    while (performance.now() < deadline) {
-      await fetch('/api/upload', {
-        method: 'POST',
-        body: chunk,
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/octet-stream' },
+  /**
+   * Send one chunk via XHR and resolve as soon as the browser finishes
+   * transmitting (xhr.upload 'load' event) — not waiting for server response.
+   */
+  function sendChunk(): Promise<void> {
+    return new Promise(resolve => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload', true);
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+
+      // Resolve the moment the browser has finished sending
+      xhr.upload.addEventListener('load', () => {
+        totalBytes += chunk.byteLength;
+        resolve();
       });
-      totalBytes += chunk.byteLength;
+      // Also resolve on error/abort so workers don't stall
+      xhr.upload.addEventListener('error', () => resolve());
+      xhr.upload.addEventListener('abort', () => resolve());
+      // Abort server response early — we don't need it
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) xhr.abort();
+      };
+
+      xhr.send(chunk);
+    });
+  }
+
+  async function worker() {
+    while (performance.now() < deadline) {
+      await sendChunk();
     }
   }
 
-  const progressTimer = setInterval(() => {
+  const timer = setInterval(() => {
     if (done) return;
     const elapsed = (performance.now() - startTime) / 1000;
-    const currentSpeed = elapsed > 0 ? (totalBytes * 8) / 1_000_000 / elapsed : 0;
-    const progress = Math.min(99, Math.round(((performance.now() - startTime) / TEST_DURATION_MS) * 100));
-    onProgress({ phase: 'upload', progress, currentSpeed });
+    const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+    const pct     = Math.min(99, Math.round(((performance.now() - startTime) / TEST_DURATION_MS) * 100));
+    onProgress({ phase: 'upload', progress: pct, currentSpeed: speed });
   }, 250);
 
-  await Promise.all(Array.from({ length: PARALLEL_STREAMS }, uploadWorker));
-
+  await Promise.all(Array.from({ length: PARALLEL_STREAMS }, worker));
   done = true;
-  clearInterval(progressTimer);
+  clearInterval(timer);
 
-  const totalElapsed = (performance.now() - startTime) / 1000;
-  const avgSpeed = totalElapsed > 0 ? (totalBytes * 8) / 1_000_000 / totalElapsed : 0;
-  onProgress({ phase: 'upload', progress: 100, currentSpeed: avgSpeed });
-  return avgSpeed;
+  const elapsed = (performance.now() - startTime) / 1000;
+  const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+  onProgress({ phase: 'upload', progress: 100, currentSpeed: speed });
+  return speed;
 }
 
 export type { TestResult, TestProgress };
