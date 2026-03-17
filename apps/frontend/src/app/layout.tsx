@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
+import Navbar from '../components/Navbar';
 import './globals.css';
 
 const SITE_URL = 'https://speedtest.chghulamnabi.com';
@@ -69,7 +70,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="afterInteractive"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        {children}
+      </body>
     </html>
   );
 }

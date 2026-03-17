@@ -168,11 +168,7 @@ export default function HomePage() {
       {/* ── Content ── */}
       <div className="page">
 
-        {/* Nav */}
-        <nav className="top-nav">
-          <Link href="/" className="nav-logo">SpeedTest</Link>
-          <Link href="/blog" className="nav-link">Guides</Link>
-        </nav>
+        {/* Nav is in layout — global Navbar component */}
 
         {/* Header */}
         <header className="header">
