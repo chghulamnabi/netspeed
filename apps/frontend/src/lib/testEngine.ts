@@ -16,10 +16,10 @@ export async function measureLatency(): Promise<{ latency: number; jitter: numbe
   return { latency: avg, jitter };
 }
 
-const TEST_DURATION_MS = 10_000;
-const DOWNLOAD_CHUNK_SIZE = 25 * 1024 * 1024; // 25MB
-const UPLOAD_CHUNK_SIZE   = 4 * 1024 * 1024;  // 4MB — larger = fewer round-trips to Vercel
-const PARALLEL_STREAMS    = 8;
+const TEST_DURATION_MS    = 10_000;
+const DOWNLOAD_CHUNK_SIZE = 100 * 1024 * 1024; // 100MB — handles 5G/gigabit without re-fetching
+const UPLOAD_CHUNK_SIZE   = 16 * 1024 * 1024;  // 16MB — fewer Vercel round-trips on fast links
+const PARALLEL_STREAMS    = 12;                 // more streams = better saturation on 5G
 
 function randomBytes(size: number): Uint8Array {
   const buf = new Uint8Array(size);
@@ -76,11 +76,8 @@ export async function measureDownload(
 }
 
 /**
- * Upload accuracy strategy:
- * - Use large chunks (4MB) to amortize Vercel cold-start / RTT overhead
- * - Measure wall-clock time from XHR open → server 200 response (readyState 4)
- * - This is the true end-to-end send time, not the OS buffer flush time
- * - Discard the first chunk (warm-up) to avoid cold-start skew
+ * Upload: large chunks to amortize Vercel RTT, measure wall-clock send→ack time.
+ * Warm-up first chunk to establish TCP connection before counting bytes.
  */
 export async function measureUpload(
   onProgress: (p: TestProgress) => void
@@ -103,7 +100,6 @@ export async function measureUpload(
 
       xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
-          // Wall-clock time from send → server ack = true wire time
           const elapsed = (performance.now() - sendStart) / 1000;
           resolve(elapsed > 0 ? UPLOAD_CHUNK_SIZE / elapsed : 0);
         }
@@ -115,7 +111,6 @@ export async function measureUpload(
   }
 
   async function worker() {
-    // Warm-up: one chunk to establish TCP connection, don't count it
     if (!warmedUp) {
       warmedUp = true;
       await sendChunk();
