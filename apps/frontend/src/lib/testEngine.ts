@@ -1,31 +1,14 @@
-import type { TestResult, TestProgress } from '@shared/types';
+﻿import type { TestResult, TestProgress } from '@shared/types';
 
-const PING_COUNT = 10;
+// Cloudflare Worker — routes to nearest PoP (Karachi/Lahore for PK users)
+const WORKER = 'https://netspeed.nabig151cs.workers.dev';
 
-export async function measureLatency(): Promise<{ latency: number; jitter: number }> {
-  const times: number[] = [];
-  for (let i = 0; i < PING_COUNT; i++) {
-    const start = performance.now();
-    await fetch('https://speed.cloudflare.com/__down?bytes=0', { cache: 'no-store' });
-    times.push(performance.now() - start);
-  }
-  times.sort((a, b) => a - b);
-  const trimmed = times.slice(0, Math.ceil(PING_COUNT * 0.8));
-  const avg = trimmed.reduce((s, t) => s + t, 0) / trimmed.length;
-  const jitter = Math.sqrt(trimmed.reduce((s, t) => s + (t - avg) ** 2, 0) / trimmed.length);
-  return { latency: avg, jitter };
-}
-
-const TEST_DURATION_MS  = 15_000; // 15s — more time = more samples = more accurate average
-const WARMUP_DURATION_MS = 2_000; // 2s warm-up to establish TCP + fill slow-start window
-
-// Download: 10MB chunks — on 20Mbps each takes ~4s, workers stay busy the full 15s
-const DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
-
-// Upload: 3MB — safely under Vercel's 4.5MB body limit
-const UPLOAD_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB
-
-const PARALLEL_STREAMS = 8;
+const PING_COUNT          = 10;
+const TEST_DURATION_MS    = 15_000;
+const WARMUP_DURATION_MS  = 2_000;
+const DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024;
+const UPLOAD_CHUNK_SIZE   = 10 * 1024 * 1024;
+const PARALLEL_STREAMS    = 8;
 
 function randomBytes(size: number): Uint8Array {
   const buf = new Uint8Array(size);
@@ -35,6 +18,20 @@ function randomBytes(size: number): Uint8Array {
   return buf;
 }
 
+export async function measureLatency(): Promise<{ latency: number; jitter: number }> {
+  const times: number[] = [];
+  for (let i = 0; i < PING_COUNT; i++) {
+    const start = performance.now();
+    await fetch(`${WORKER}/ping`, { cache: 'no-store' });
+    times.push(performance.now() - start);
+  }
+  times.sort((a, b) => a - b);
+  const trimmed = times.slice(0, Math.ceil(PING_COUNT * 0.8));
+  const avg = trimmed.reduce((s, t) => s + t, 0) / trimmed.length;
+  const jitter = Math.sqrt(trimmed.reduce((s, t) => s + (t - avg) ** 2, 0) / trimmed.length);
+  return { latency: avg, jitter };
+}
+
 export async function measureDownload(
   onProgress: (p: TestProgress) => void
 ): Promise<number> {
@@ -42,24 +39,20 @@ export async function measureDownload(
   const warmupEnd   = startTime + WARMUP_DURATION_MS;
   const deadline    = startTime + TEST_DURATION_MS;
   let totalBytes    = 0;
-  let countingBytes = false; // only count after warm-up
+  let countingBytes = false;
   let done          = false;
 
   async function worker() {
     while (performance.now() < deadline) {
       let res: Response;
       try {
-        res = await fetch(
-          `https://speed.cloudflare.com/__down?bytes=${DOWNLOAD_CHUNK_SIZE}`,
-          { cache: 'no-store' }
-        );
+        res = await fetch(`${WORKER}/download?bytes=${DOWNLOAD_CHUNK_SIZE}`, { cache: 'no-store' });
       } catch { break; }
       if (!res.body) break;
       const reader = res.body.getReader();
       while (true) {
         const { done: rd, value } = await reader.read();
         if (rd) break;
-        // Start counting once warm-up window has passed
         if (performance.now() >= warmupEnd) {
           countingBytes = true;
           totalBytes += value.byteLength;
@@ -99,30 +92,34 @@ export async function measureUpload(
   let totalBytes   = 0;
   let done         = false;
 
-  function sendChunk(): Promise<{ ok: boolean }> {
+  function sendChunk(): Promise<void> {
     return new Promise(resolve => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload', true);
+      xhr.open('POST', `${WORKER}/upload`, true);
       xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      let prevLoaded = 0;
+      xhr.upload.addEventListener('progress', (e) => {
+        const delta = e.loaded - prevLoaded;
+        prevLoaded = e.loaded;
+        if (delta > 0 && performance.now() >= warmupEnd) totalBytes += delta;
+      });
+      xhr.upload.addEventListener('load', () => {
+        const remaining = UPLOAD_CHUNK_SIZE - prevLoaded;
+        if (remaining > 0 && performance.now() >= warmupEnd) totalBytes += remaining;
+        resolve();
+      });
+      xhr.upload.addEventListener('error', () => resolve());
+      xhr.upload.addEventListener('abort', () => resolve());
       xhr.onreadystatechange = () => {
-        if (xhr.readyState === 4) {
-          resolve({ ok: xhr.status >= 200 && xhr.status < 300 });
-        }
+        if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) xhr.abort();
       };
-      xhr.onerror   = () => resolve({ ok: false });
-      xhr.ontimeout = () => resolve({ ok: false });
-      xhr.timeout   = 30_000;
       xhr.send(buffer);
     });
   }
 
   async function worker() {
     while (performance.now() < deadline) {
-      const { ok } = await sendChunk();
-      // Only count bytes after warm-up window
-      if (ok && performance.now() >= warmupEnd) {
-        totalBytes += UPLOAD_CHUNK_SIZE;
-      }
+      await sendChunk();
     }
   }
 
