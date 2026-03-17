@@ -11,23 +11,24 @@ export default function ContactPage() {
   return (
     <>
       <div className="bg-scene"><div className="stars" /><div className="grid-floor" /></div>
-
       <main className="ct-page">
 
-        {/* ── HEADER ── */}
-        <div className="ct-header">
-          <Link href="/" className="ct-back">← Back</Link>
+        <header className="ct-header">
+          <Link href="/" className="ct-back">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M19 12H5M12 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Back
+          </Link>
           <div className="ct-header__badge">
             <span className="ct-header__badge-dot" />
             Cyber Vision Technologies
           </div>
           <h1 className="ct-header__h1">Get in Touch</h1>
           <p className="ct-header__sub">We read every message and reply within 24 hours.</p>
-        </div>
+        </header>
 
         <div className="ct-body">
-
-          {/* ── LEFT PANEL ── */}
           <aside className="ct-aside">
             <div className="ct-aside__item">
               <div className="ct-aside__icon">
@@ -40,7 +41,6 @@ export default function ContactPage() {
                 <a href="mailto:atiehally@gmail.com" className="ct-aside__val ct-aside__val--link">atiehally@gmail.com</a>
               </div>
             </div>
-
             <div className="ct-aside__item">
               <div className="ct-aside__icon">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
@@ -49,18 +49,15 @@ export default function ContactPage() {
               </div>
               <div>
                 <div className="ct-aside__lbl">Company</div>
-                <a href="https://www.linkedin.com/company/cybervisiontechnologies/"
-                  target="_blank" rel="noopener noreferrer"
-                  className="ct-aside__val ct-aside__val--link">
+                <a href="https://www.linkedin.com/company/cybervisiontechnologies/" target="_blank" rel="noopener noreferrer" className="ct-aside__val ct-aside__val--link">
                   Cyber Vision Technologies ↗
                 </a>
               </div>
             </div>
-
             <div className="ct-aside__item">
               <div className="ct-aside__icon">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" strokeLinecap="round"/>
                 </svg>
               </div>
               <div>
@@ -68,67 +65,51 @@ export default function ContactPage() {
                 <div className="ct-aside__val">Within 24 hours</div>
               </div>
             </div>
-
             <div className="ct-aside__tip">
               <span aria-hidden="true">💡</span>
               For bug reports, include your browser, device, and the speed result you saw.
             </div>
           </aside>
 
-          {/* ── FORM ── */}
           <div className="ct-form-card">
             {state.succeeded ? (
               <div className="ct-success">
                 <div className="ct-success__ring">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#00e676" strokeWidth="2.5" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#00e676" strokeWidth="2.5" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 </div>
                 <div className="ct-success__title">Message Sent!</div>
-                <p className="ct-success__body">
-                  Thanks for reaching out. We&apos;ll reply to your email within 24 hours.
-                </p>
+                <p className="ct-success__body">Thanks for reaching out. We&apos;ll reply to your email within 24 hours.</p>
                 <Link href="/" className="ct-submit" style={{ textDecoration: 'none', display: 'inline-flex', marginTop: 8 }}>
                   Back to Speed Test
                 </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="ct-form" noValidate aria-label="Contact form">
-
                 <div className="ct-row">
-                  {/* Name */}
                   <div className="ct-field">
                     <label className="ct-label" htmlFor="cf-name">Full Name <span className="ct-req">*</span></label>
-                    <input id="cf-name" name="name" type="text" autoComplete="name"
-                      placeholder="Your full name" className="ct-input" required />
+                    <input id="cf-name" name="name" type="text" autoComplete="name" placeholder="Your full name" className="ct-input" required />
                     <ValidationError prefix="Name" field="name" errors={state.errors} className="ct-err" />
                   </div>
-                  {/* Email */}
                   <div className="ct-field">
                     <label className="ct-label" htmlFor="cf-email">Email Address <span className="ct-req">*</span></label>
-                    <input id="cf-email" name="email" type="email" autoComplete="email"
-                      placeholder="you@example.com" className="ct-input" required />
+                    <input id="cf-email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className="ct-input" required />
                     <ValidationError prefix="Email" field="email" errors={state.errors} className="ct-err" />
                   </div>
                 </div>
-
-                {/* Subject */}
                 <div className="ct-field">
                   <label className="ct-label" htmlFor="cf-subject">Subject</label>
                   <select id="cf-subject" name="subject" className="ct-input ct-select">
                     {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-
-                {/* Message */}
                 <div className="ct-field">
                   <label className="ct-label" htmlFor="cf-message">Message <span className="ct-req">*</span></label>
-                  <textarea id="cf-message" name="message" rows={5}
-                    placeholder="Tell us how we can help…"
-                    className="ct-input ct-textarea" required />
+                  <textarea id="cf-message" name="message" rows={5} placeholder="Tell us how we can help…" className="ct-input ct-textarea" required />
                   <ValidationError prefix="Message" field="message" errors={state.errors} className="ct-err" />
                 </div>
-
                 <button type="submit" className="ct-submit" disabled={state.submitting} aria-busy={state.submitting}>
                   {state.submitting ? (
                     <><span className="ct-spinner" aria-hidden="true" /> Sending…</>
@@ -136,7 +117,6 @@ export default function ContactPage() {
                     <><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg> Send Message</>
                   )}
                 </button>
-
               </form>
             )}
           </div>

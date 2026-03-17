@@ -5,7 +5,7 @@ import Script from 'next/script';
 const SITE_URL = 'https://speedtest.chghulamnabi.com';
 
 export const metadata: Metadata = {
-  title: 'About — Cyber Vision Technologies',
+  title: 'About — Cyber Vision Technologies | NetSpeed',
   description: 'NetSpeed is a free internet speed test tool built by Cyber Vision Technologies. Measure download, upload, ping and jitter instantly.',
   alternates: { canonical: `${SITE_URL}/about` },
 };
@@ -35,7 +35,7 @@ const STATS = [
 ];
 
 const TECH = [
-  { name: 'Next.js 14', role: 'Frontend', color: '#ffffff' },
+  { name: 'Next.js 14', role: 'Frontend Framework', color: '#ffffff' },
   { name: 'Cloudflare Workers', role: 'Edge Compute', color: '#f6821f' },
   { name: 'TypeScript', role: 'Language', color: '#3178c6' },
   { name: 'Vercel', role: 'Deployment', color: '#ffffff' },
@@ -59,21 +59,29 @@ export default function AboutPage() {
             <span className="ab-hero__badge-dot" />
             Built by Cyber Vision Technologies
           </div>
+
           <h1 className="ab-hero__h1">
             <span className="ab-hero__h1-top">NetSpeed</span>
             <span className="ab-hero__h1-sub">Internet Speed Intelligence</span>
           </h1>
+
           <p className="ab-hero__p">
             A professional-grade, free broadband speed test — engineered for accuracy,
             built for everyone. No sign-up. No paywalls. Just your real connection speed.
           </p>
+
           <div className="ab-hero__ctas">
             <Link href="/" className="ab-cta ab-cta--primary">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="7,3 21,12 7,21"/></svg>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                <polygon points="7,3 21,12 7,21"/>
+              </svg>
               Run Speed Test
             </Link>
-            <a href="https://www.linkedin.com/company/cybervisiontechnologies/"
-              target="_blank" rel="noopener noreferrer" className="ab-cta ab-cta--ghost">
+            <a
+              href="https://www.linkedin.com/company/cybervisiontechnologies/"
+              target="_blank" rel="noopener noreferrer"
+              className="ab-cta ab-cta--ghost"
+            >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
               </svg>
@@ -112,8 +120,8 @@ export default function AboutPage() {
         <section className="ab-mission">
           <div className="ab-section__eyebrow">Our Mission</div>
           <blockquote className="ab-mission__quote">
-            "Internet access is a fundamental right. Knowing the quality of that access
-            should be free, instant, and accurate — for everyone, everywhere."
+            &ldquo;Internet access is a fundamental right. Knowing the quality of that access
+            should be free, instant, and accurate — for everyone, everywhere.&rdquo;
           </blockquote>
           <p className="ab-mission__body">
             Cyber Vision Technologies builds tools that give people clarity over their digital
@@ -139,17 +147,20 @@ export default function AboutPage() {
         {/* ── FOOTER ── */}
         <footer className="ab-footer">
           <div className="ab-footer__logo">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="1.5" opacity=".4"/>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="1.5" opacity=".5"/>
               <path d="M12 12 L19 5" stroke="#00e5ff" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="12" cy="12" r="2" fill="#00e5ff"/>
+              <circle cx="12" cy="12" r="2.5" fill="#00e5ff"/>
             </svg>
             <span>NetSpeed</span>
           </div>
           <p className="ab-footer__copy">
             © {new Date().getFullYear()}{' '}
-            <a href="https://www.linkedin.com/company/cybervisiontechnologies/"
-              target="_blank" rel="noopener noreferrer" className="ab-footer__link">
+            <a
+              href="https://www.linkedin.com/company/cybervisiontechnologies/"
+              target="_blank" rel="noopener noreferrer"
+              className="ab-footer__link"
+            >
               Cyber Vision Technologies
             </a>
             . All rights reserved. Free to use. No data sold.
