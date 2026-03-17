@@ -113,7 +113,7 @@ export async function measureUpload(
         if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) xhr.abort();
       };
 
-      xhr.send(chunk);
+      xhr.send(chunk.buffer as ArrayBuffer);
     });
   }
 
