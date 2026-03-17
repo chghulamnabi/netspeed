@@ -1,8 +1,26 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import Script from 'next/script';
+import dynamic from 'next/dynamic';
 import { measureLatency, measureDownload, measureUpload } from '../lib/testEngine';
 import type { TestProgress, TestResult } from '../lib/testEngine';
+
+const NearbyMap = dynamic(() => import('../components/NearbyMap'), { ssr: false });
+
+const SITE_URL = 'https://speedtest.chghulamnabi.com';
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'SpeedTest',
+  url: SITE_URL,
+  description: 'Free internet speed test — measure download speed, upload speed, ping and jitter instantly.',
+  applicationCategory: 'UtilitiesApplication',
+  operatingSystem: 'Any',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
 
 // ── Arc Gauge ──────────────────────────────────────────────────────────────
 function ArcGauge({ value, max, color, size = 150 }: {
@@ -32,8 +50,8 @@ function ArcGauge({ value, max, color, size = 150 }: {
   return (
     <svg
       width={size}
-      height={size * 0.80}
-      viewBox={`0 0 ${size} ${size * 0.80}`}
+      height={size * 1.05}
+      viewBox={`0 0 ${size} ${size * 1.05}`}
       overflow="visible"
       style={{ display: 'block' }}
     >
@@ -56,12 +74,12 @@ function ArcGauge({ value, max, color, size = 150 }: {
         filter={`url(#${filterId})`}
         style={{ transition: 'stroke-dashoffset 0.45s cubic-bezier(.4,0,.2,1)' }} />
       {/* Value */}
-      <text x={cx} y={cy * 0.95} textAnchor="middle" dominantBaseline="middle"
+      <text x={cx} y={cy * 0.88} textAnchor="middle" dominantBaseline="middle"
         fontFamily="Orbitron, monospace" fontWeight="900"
         fontSize={size * 0.17} fill="white">
         {value >= 100 ? value.toFixed(0) : value.toFixed(1)}
       </text>
-      <text x={cx} y={cy * 1.20} textAnchor="middle"
+      <text x={cx} y={cy * 1.12} textAnchor="middle"
         fontFamily="Rajdhani, sans-serif" fontSize={size * 0.088}
         fill="rgba(255,255,255,0.32)" letterSpacing="2">
         Mbps
@@ -135,6 +153,12 @@ export default function HomePage() {
 
   return (
     <>
+      <Script
+        id="website-jsonld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+
       {/* ── Background ── */}
       <div className="bg-scene">
         <div className="stars" />
@@ -143,6 +167,12 @@ export default function HomePage() {
 
       {/* ── Content ── */}
       <div className="page">
+
+        {/* Nav */}
+        <nav className="top-nav">
+          <Link href="/" className="nav-logo">SpeedTest</Link>
+          <Link href="/blog" className="nav-link">Guides</Link>
+        </nav>
 
         {/* Header */}
         <header className="header">
@@ -275,6 +305,54 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        {/* AdSense slot */}
+        <div className="ad-slot ad-slot--horizontal" aria-label="Advertisement">
+          <ins className="adsbygoogle"
+            style={{ display: 'block' }}
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
+            data-ad-slot="5566778899"
+            data-ad-format="auto"
+            data-full-width-responsive="true" />
+        </div>
+
+        {/* Nearby providers map */}
+        <NearbyMap />
+
+        {/* SEO content — helps Google understand the page */}
+        <section className="seo-section">
+          <h2 className="seo-section__title">Free Internet Speed Test</h2>
+          <p className="seo-section__text">
+            Our free broadband speed test measures your real-time <strong>download speed</strong>,{' '}
+            <strong>upload speed</strong>, <strong>ping (latency)</strong>, and <strong>jitter</strong>{' '}
+            in seconds — no app or plugin required. Works on any device: desktop, laptop, tablet, or phone.
+          </p>
+          <div className="seo-features">
+            <div className="seo-feature">
+              <span className="seo-feature__icon">⚡</span>
+              <span className="seo-feature__label">Real-time measurement</span>
+            </div>
+            <div className="seo-feature">
+              <span className="seo-feature__icon">🌐</span>
+              <span className="seo-feature__label">Works on all devices</span>
+            </div>
+            <div className="seo-feature">
+              <span className="seo-feature__icon">🔒</span>
+              <span className="seo-feature__label">No account needed</span>
+            </div>
+            <div className="seo-feature">
+              <span className="seo-feature__icon">📊</span>
+              <span className="seo-feature__label">Download, upload & ping</span>
+            </div>
+          </div>
+          <div className="seo-blog-links">
+            <span className="seo-blog-links__label">Learn more:</span>
+            <Link href="/blog/what-is-a-good-internet-speed" className="seo-blog-link">What is a good internet speed?</Link>
+            <Link href="/blog/why-is-my-internet-slow" className="seo-blog-link">Why is my internet slow?</Link>
+            <Link href="/blog/fiber-vs-cable-vs-dsl-internet" className="seo-blog-link">Fiber vs Cable vs DSL</Link>
+          </div>
+        </section>
+
       </div>
     </>
   );
