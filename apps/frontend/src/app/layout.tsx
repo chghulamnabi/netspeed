@@ -3,7 +3,7 @@ import Script from 'next/script';
 import './globals.css';
 
 const SITE_URL = 'https://speedtest.chghulamnabi.com';
-const ADSENSE_ID = 'ca-pub-XXXXXXXXXXXXXXXXX'; // ← replace with your AdSense publisher ID
+const ADSENSE_ID = 'ca-pub-8643140577697781';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -59,6 +59,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* Google AdSense account verification */}
+        <meta name="google-adsense-account" content="ca-pub-8643140577697781" />
         {/* Google AdSense */}
         <Script
           async

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Allow up to 4MB body (Vercel Hobby limit is 4.5MB)
+export const config = {
+  api: { bodyParser: { sizeLimit: '4mb' } },
+};
+
 export async function POST(request: NextRequest) {
-  // Drain and discard the body as fast as possible
-  // We don't proxy to Cloudflare — upload speed is measured client-side via XHR upload events
+  // Drain and discard the body — we only need the server to ACK receipt
   if (request.body) {
     const reader = request.body.getReader();
     while (true) {

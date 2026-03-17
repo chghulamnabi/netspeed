@@ -16,10 +16,16 @@ export async function measureLatency(): Promise<{ latency: number; jitter: numbe
   return { latency: avg, jitter };
 }
 
-const TEST_DURATION_MS    = 10_000;
-const DOWNLOAD_CHUNK_SIZE = 100 * 1024 * 1024; // 100MB — handles 5G/gigabit without re-fetching
-const UPLOAD_CHUNK_SIZE   = 16 * 1024 * 1024;  // 16MB — fewer Vercel round-trips on fast links
-const PARALLEL_STREAMS    = 12;                 // more streams = better saturation on 5G
+const TEST_DURATION_MS  = 15_000; // 15s — more time = more samples = more accurate average
+const WARMUP_DURATION_MS = 2_000; // 2s warm-up to establish TCP + fill slow-start window
+
+// Download: 10MB chunks — on 20Mbps each takes ~4s, workers stay busy the full 15s
+const DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Upload: 3MB — safely under Vercel's 4.5MB body limit
+const UPLOAD_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB
+
+const PARALLEL_STREAMS = 8;
 
 function randomBytes(size: number): Uint8Array {
   const buf = new Uint8Array(size);
@@ -32,10 +38,12 @@ function randomBytes(size: number): Uint8Array {
 export async function measureDownload(
   onProgress: (p: TestProgress) => void
 ): Promise<number> {
-  const startTime = performance.now();
-  const deadline  = startTime + TEST_DURATION_MS;
-  let totalBytes  = 0;
-  let done        = false;
+  const startTime   = performance.now();
+  const warmupEnd   = startTime + WARMUP_DURATION_MS;
+  const deadline    = startTime + TEST_DURATION_MS;
+  let totalBytes    = 0;
+  let countingBytes = false; // only count after warm-up
+  let done          = false;
 
   async function worker() {
     while (performance.now() < deadline) {
@@ -51,7 +59,11 @@ export async function measureDownload(
       while (true) {
         const { done: rd, value } = await reader.read();
         if (rd) break;
-        totalBytes += value.byteLength;
+        // Start counting once warm-up window has passed
+        if (performance.now() >= warmupEnd) {
+          countingBytes = true;
+          totalBytes += value.byteLength;
+        }
         if (performance.now() >= deadline) { reader.cancel(); break; }
       }
     }
@@ -59,9 +71,10 @@ export async function measureDownload(
 
   const timer = setInterval(() => {
     if (done) return;
-    const elapsed = (performance.now() - startTime) / 1000;
-    const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
-    const pct     = Math.min(99, Math.round(((performance.now() - startTime) / TEST_DURATION_MS) * 100));
+    const now     = performance.now();
+    const elapsed = Math.max(0, (now - warmupEnd) / 1000);
+    const speed   = countingBytes && elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+    const pct     = Math.min(99, Math.round(((now - startTime) / TEST_DURATION_MS) * 100));
     onProgress({ phase: 'download', progress: pct, currentSpeed: speed });
   }, 250);
 
@@ -69,63 +82,56 @@ export async function measureDownload(
   done = true;
   clearInterval(timer);
 
-  const elapsed = (performance.now() - startTime) / 1000;
-  const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+  const elapsed = Math.max(0.001, (performance.now() - warmupEnd) / 1000);
+  const speed   = (totalBytes * 8) / 1e6 / elapsed;
   onProgress({ phase: 'download', progress: 100, currentSpeed: speed });
   return speed;
 }
 
-/**
- * Upload: large chunks to amortize Vercel RTT, measure wall-clock send→ack time.
- * Warm-up first chunk to establish TCP connection before counting bytes.
- */
 export async function measureUpload(
   onProgress: (p: TestProgress) => void
 ): Promise<number> {
   const buffer = randomBytes(UPLOAD_CHUNK_SIZE).buffer.slice(0) as ArrayBuffer;
 
-  const testStart = performance.now();
-  const deadline  = testStart + TEST_DURATION_MS;
-  let totalBytes  = 0;
-  let done        = false;
-  let warmedUp    = false;
+  const testStart  = performance.now();
+  const warmupEnd  = testStart + WARMUP_DURATION_MS;
+  const deadline   = testStart + TEST_DURATION_MS;
+  let totalBytes   = 0;
+  let done         = false;
 
-  function sendChunk(): Promise<number> {
+  function sendChunk(): Promise<{ ok: boolean }> {
     return new Promise(resolve => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/upload', true);
       xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-
-      const sendStart = performance.now();
-
       xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
-          const elapsed = (performance.now() - sendStart) / 1000;
-          resolve(elapsed > 0 ? UPLOAD_CHUNK_SIZE / elapsed : 0);
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300 });
         }
       };
-
-      xhr.onerror = () => resolve(0);
+      xhr.onerror   = () => resolve({ ok: false });
+      xhr.ontimeout = () => resolve({ ok: false });
+      xhr.timeout   = 30_000;
       xhr.send(buffer);
     });
   }
 
   async function worker() {
-    if (!warmedUp) {
-      warmedUp = true;
-      await sendChunk();
-    }
     while (performance.now() < deadline) {
-      const bytesPerSec = await sendChunk();
-      if (bytesPerSec > 0) totalBytes += UPLOAD_CHUNK_SIZE;
+      const { ok } = await sendChunk();
+      // Only count bytes after warm-up window
+      if (ok && performance.now() >= warmupEnd) {
+        totalBytes += UPLOAD_CHUNK_SIZE;
+      }
     }
   }
 
   const timer = setInterval(() => {
     if (done) return;
-    const elapsed = (performance.now() - testStart) / 1000;
+    const now     = performance.now();
+    const elapsed = Math.max(0, (now - warmupEnd) / 1000);
     const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
-    const pct     = Math.min(99, Math.round(((performance.now() - testStart) / TEST_DURATION_MS) * 100));
+    const pct     = Math.min(99, Math.round(((now - testStart) / TEST_DURATION_MS) * 100));
     onProgress({ phase: 'upload', progress: pct, currentSpeed: speed });
   }, 250);
 
@@ -133,8 +139,8 @@ export async function measureUpload(
   done = true;
   clearInterval(timer);
 
-  const elapsed = (performance.now() - testStart) / 1000;
-  const speed   = elapsed > 0 ? (totalBytes * 8) / 1e6 / elapsed : 0;
+  const elapsed = Math.max(0.001, (performance.now() - warmupEnd) / 1000);
+  const speed   = (totalBytes * 8) / 1e6 / elapsed;
   onProgress({ phase: 'upload', progress: 100, currentSpeed: speed });
   return speed;
 }
