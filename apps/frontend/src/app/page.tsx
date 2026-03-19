@@ -80,7 +80,7 @@ function ArcGauge({ value, max, color, size = 150 }: {
         fontSize={size * 0.17} fill="white">
         {value >= 100 ? value.toFixed(0) : value.toFixed(1)}
       </text>
-      <text x={cx} y={cy * 1.12} textAnchor="middle"
+      <text x={cx} y={cy * 1.18} textAnchor="middle"
         fontFamily="Rajdhani, sans-serif" fontSize={size * 0.088}
         fill="rgba(255,255,255,0.32)" letterSpacing="2">
         Mbps
