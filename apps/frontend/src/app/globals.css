@@ -1080,9 +1080,6 @@ html, body {
   color: rgba(255,255,255,0.22);
   line-height: 1.2;
 }
-  color: rgba(255,255,255,0.22);
-  line-height: 1;
-}
 
 /* Status dot */
 .nb-status {
