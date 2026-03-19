@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { measureLatency, measureDownload, measureUpload } from '../lib/testEngine';
 import type { TestProgress, TestResult } from '../lib/testEngine';
 import NetworkDiagnostics from '../components/NetworkDiagnostics';
+import AdUnit from '../components/AdUnit';
 
 const NearbyMap = dynamic(() => import('../components/NearbyMap'), { ssr: false });
 
@@ -304,14 +305,7 @@ export default function HomePage() {
         )}
 
         {/* AdSense slot */}
-        <div className="ad-slot ad-slot--horizontal" aria-label="Advertisement">
-          <ins className="adsbygoogle"
-            style={{ display: 'block' }}
-            data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
-            data-ad-slot="5566778899"
-            data-ad-format="auto"
-            data-full-width-responsive="true" />
-        </div>
+        <AdUnit slot="5566778899" />
 
         {/* Network Diagnostics — shown after test completes */}
         {result && (

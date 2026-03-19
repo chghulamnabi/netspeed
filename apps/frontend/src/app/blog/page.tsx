@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { blogPosts } from '../../lib/blogData';
+import AdUnit from '../../components/AdUnit';
 
 export const metadata: Metadata = {
   title: 'Internet Speed & Broadband Guides',
@@ -26,14 +27,7 @@ export default function BlogPage() {
         </header>
 
         {/* Ad slot — top of blog */}
-        <div className="ad-slot ad-slot--horizontal" aria-label="Advertisement">
-          <ins className="adsbygoogle"
-            style={{ display: 'block' }}
-            data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
-            data-ad-slot="1234567890"
-            data-ad-format="auto"
-            data-full-width-responsive="true" />
-        </div>
+        <AdUnit slot="1234567890" />
 
         {/* Post grid */}
         <div className="blog-grid">

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
 import { blogPosts } from '../../../lib/blogData';
+import AdUnit from '../../../components/AdUnit';
 
 const SITE_URL = 'https://speedtest.chghulamnabi.com';
 
@@ -83,14 +84,7 @@ export default function BlogPostPage({ params }: Props) {
           </div>
 
           {/* Ad — top of article */}
-          <div className="ad-slot ad-slot--horizontal" aria-label="Advertisement">
-            <ins className="adsbygoogle"
-              style={{ display: 'block' }}
-              data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
-              data-ad-slot="9876543210"
-              data-ad-format="auto"
-              data-full-width-responsive="true" />
-          </div>
+          <AdUnit slot="9876543210" />
 
           {/* Content */}
           <div
@@ -99,14 +93,7 @@ export default function BlogPostPage({ params }: Props) {
           />
 
           {/* Ad — mid article */}
-          <div className="ad-slot ad-slot--horizontal" aria-label="Advertisement" style={{ margin: '32px 0' }}>
-            <ins className="adsbygoogle"
-              style={{ display: 'block' }}
-              data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
-              data-ad-slot="1122334455"
-              data-ad-format="auto"
-              data-full-width-responsive="true" />
-          </div>
+          <AdUnit slot="1122334455" style={{ margin: '32px 0' }} />
 
           {/* CTA */}
           <div className="article-cta">
